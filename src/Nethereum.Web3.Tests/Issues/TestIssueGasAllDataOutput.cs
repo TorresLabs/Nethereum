@@ -7,6 +7,7 @@ using Nethereum.Geth;
 using Nethereum.Hex.HexTypes;
 using Nethereum.RPC.Eth.DTOs;
 using Nethereum.Web3.Accounts;
+using Nethereum.Web3.Accounts.Managed;
 using Xunit;
 
 namespace Nethereum.Web3.Tests.Issues
@@ -26,11 +27,7 @@ namespace Nethereum.Web3.Tests.Issues
             var transactionHash =
                 await web3.Eth.DeployContract.SendRequestAsync(abi, byteCode, senderAddress, new HexBigInteger(1999990));
 
-            var mineResult = await web3.Miner.Start.SendRequestAsync(2);
-
-            Assert.True(mineResult);
-
-            var receipt = await MineAndGetReceiptAsync(web3, transactionHash);
+            var receipt = await WaitForReceiptAsync(web3, transactionHash);
 
             var contractAddress = receipt.ContractAddress;
 
@@ -42,7 +39,7 @@ namespace Nethereum.Web3.Tests.Issues
 
             var resultHash = await addCustomerFunction.SendTransactionAsync(senderAddress, new HexBigInteger(900000), new HexBigInteger(0), "Mahesh", 111, "Airtel");
 
-            receipt = await MineAndGetReceiptAsync(web3, resultHash);
+            receipt = await WaitForReceiptAsync(web3, resultHash);
 
             var results = await getCustomersByMobileNumberFunction.CallDeserializingToObjectAsync<CustomerData>(111);
 
@@ -52,12 +49,9 @@ namespace Nethereum.Web3.Tests.Issues
             var results2 = await getAllCustomers.CallDeserializingToObjectAsync<AllCustomerData>();
         }
 
-        public async Task<TransactionReceipt> MineAndGetReceiptAsync(Web3Geth web3, string transactionHash)
+        public async Task<TransactionReceipt> WaitForReceiptAsync(Web3Geth web3, string transactionHash)
         {
-
-            var miningResult = await web3.Miner.Start.SendRequestAsync(6);
-            Assert.True(miningResult);
-
+  
             var receipt = await web3.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(transactionHash);
 
             while (receipt == null)
@@ -66,8 +60,6 @@ namespace Nethereum.Web3.Tests.Issues
                 receipt = await web3.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(transactionHash);
             }
 
-            miningResult = await web3.Miner.Stop.SendRequestAsync();
-            Assert.True(miningResult);
             return receipt;
         }
 

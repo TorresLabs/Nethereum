@@ -1,5 +1,5 @@
 ﻿using System.Threading.Tasks;
-using EdjCase.JsonRpc.Core;
+ 
 using Nethereum.Hex.HexTypes;
 using Nethereum.JsonRpc.Client;
 
@@ -31,9 +31,9 @@ namespace Nethereum.RPC.Web3
         {
         }
 
-        public async Task<string> SendRequestAsync(HexUTF8String valueToConvertHexUtf8, object id = null)
+        public Task<string> SendRequestAsync(HexUTF8String valueToConvertHexUtf8, object id = null)
         {
-            return await base.SendRequestAsync(id, valueToConvertHexUtf8).ConfigureAwait(false);
+            return base.SendRequestAsync(id, valueToConvertHexUtf8);
         }
 
         public RpcRequest BuildRequest(HexUTF8String valueToConvert, object id = null)

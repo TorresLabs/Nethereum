@@ -1,6 +1,5 @@
 using System;
 using System.Threading.Tasks;
-using EdjCase.JsonRpc.Core;
 using Nethereum.Hex.HexConvertors.Extensions;
 using Nethereum.JsonRpc.Client;
 using Nethereum.RPC.Eth.DTOs;
@@ -78,9 +77,9 @@ namespace Nethereum.RPC.Eth.Blocks
         {
         }
 
-        public async Task<BlockWithTransactions> SendRequestAsync(string blockHash, object id = null)
+        public Task<BlockWithTransactions> SendRequestAsync(string blockHash, object id = null)
         {
-            return await base.SendRequestAsync(id, blockHash.EnsureHexPrefix(), true).ConfigureAwait(false);
+            return base.SendRequestAsync(id, blockHash.EnsureHexPrefix(), true);
         }
 
         public RpcRequest BuildRequest(string blockHash, object id = null)

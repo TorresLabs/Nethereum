@@ -1,6 +1,6 @@
-﻿using Nethereum.RPC.Eth.TransactionManagers;
+﻿using Nethereum.RPC.Accounts;
+using Nethereum.RPC.TransactionManagers;
 using Nethereum.Signer;
-using Nethereum.Web3.Transactions;
 
 
 namespace Nethereum.Web3.Accounts
@@ -12,14 +12,14 @@ namespace Nethereum.Web3.Accounts
         public static Account LoadFromKeyStoreFile(string filePath, string password)
         {
             var keyStoreService = new Nethereum.KeyStore.KeyStoreService();
-            var key = keyStoreService.DecryptKeyStoreFromFile(filePath, password);
+            var key = keyStoreService.DecryptKeyStoreFromFile(password, filePath);
             return new Account(key);
         }
 #endif
         public static Account LoadFromKeyStore(string json, string password)
         {
             var keyStoreService = new Nethereum.KeyStore.KeyStoreService();
-            var key = keyStoreService.DecryptKeyStoreFromJson(json, password);
+            var key = keyStoreService.DecryptKeyStoreFromJson(password, json);
             return new Account(key);
         }
 
@@ -49,7 +49,7 @@ namespace Nethereum.Web3.Accounts
 
         protected virtual void InitialiseDefaultTransactionManager()
         {
-            TransactionManager = new SignedTransactionManager(_privateKey, Address);
+            TransactionManager = new AccountSignerTransactionManager(_privateKey);
         }
 
         public string Address { get; protected set; }

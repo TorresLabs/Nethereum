@@ -5,6 +5,8 @@ using Org.BouncyCastle.Crypto.Generators;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Security;
 using Nethereum.Hex.HexConvertors.Extensions;
+using Org.BouncyCastle.Crypto;
+using Org.BouncyCastle.Crypto.Macs;
 
 namespace Nethereum.KeyStore.Crypto
 {
@@ -32,6 +34,25 @@ namespace Nethereum.KeyStore.Crypto
             return output;
         }
 
+        public byte[] CalculateSha256Hash(byte[] value)
+        {
+            var digest = new Sha256Digest();
+            var output = new byte[digest.GetDigestSize()];
+            digest.BlockUpdate(value, 0, value.Length);
+            digest.DoFinal(output, 0);
+            return output;
+        }
+
+        public byte[] HmacSha256(byte[] data, byte[] key)
+        {
+            var hmac = new HMac(new Sha256Digest());
+            hmac.Init(new KeyParameter(key));
+            byte[] result = new byte[hmac.GetMacSize()];
+            hmac.BlockUpdate(data, 0, data.Length);
+            hmac.DoFinal(result, 0);
+            return result;
+        }
+
         public byte[] GenerateMac(byte[] derivedKey, byte[] cipherText)
         {
             var result = new byte[16 + cipherText.Length];
@@ -41,10 +62,15 @@ namespace Nethereum.KeyStore.Crypto
         }
 
         //http://stackoverflow.com/questions/34950611/how-to-create-a-pbkdf2-sha256-password-hash-in-c-sharp-bouncy-castle//
-        public byte[] GeneratePbkdf2Sha256DerivedKey(byte[] password, byte[] salt, int count, int dklen)
+        public byte[] GeneratePbkdf2Sha256DerivedKey(string password, byte[] salt, int count, int dklen)
         {
             var pdb = new Pkcs5S2ParametersGenerator(new Sha256Digest());
-            pdb.Init(password, salt, count);
+
+            //note Pkcs5PasswordToUtf8Bytes is the same as Encoding.UTF8.GetBytes(password)
+            //changing it to keep it as bouncy
+
+            pdb.Init(PbeParametersGenerator.Pkcs5PasswordToUtf8Bytes(password.ToCharArray()), salt,
+                     count);
             //if dklen == 32, then it is 256 (8 * 32)
             var key = (KeyParameter)pdb.GenerateDerivedMacParameters(8 * dklen);
             return key.GetKey();
@@ -54,11 +80,26 @@ namespace Nethereum.KeyStore.Crypto
         {
             //ctr https://gist.github.com/hanswolff/8809275 
             var key = ParameterUtilities.CreateKeyParameter("AES", encryptKey);
+            
             var parametersWithIv = new ParametersWithIV(key, iv);
+           
             var cipher = CipherUtilities.GetCipher("AES/CTR/NoPadding");
             cipher.Init(true, parametersWithIv);
             return cipher.DoFinal(input);
         }
+
+        public byte[] GenerateAesCtrDeCipher(byte[] iv, byte[] encryptKey, byte[] input)
+        {
+            //ctr https://gist.github.com/hanswolff/8809275 
+            var key = ParameterUtilities.CreateKeyParameter("AES", encryptKey);
+            var parametersWithIv = new ParametersWithIV(key, iv);
+
+            var cipher = CipherUtilities.GetCipher("AES/CTR/NoPadding");
+           
+            cipher.Init(false, parametersWithIv);
+            return cipher.DoFinal(input);
+        }
+
 
         public byte[] DecryptScrypt(string password, byte[] mac, byte[] iv, byte[] cipherText, int n, int p, int r, byte[] salt, int dklen)
         {
@@ -68,7 +109,7 @@ namespace Nethereum.KeyStore.Crypto
 
         public byte[] DecryptPbkdf2Sha256(string password, byte[] mac, byte[] iv, byte[] cipherText, int c, byte[] salt, int dklen)
         {
-            var derivedKey = GeneratePbkdf2Sha256DerivedKey(GetPasswordAsBytes(password), salt, c, dklen);
+            var derivedKey = GeneratePbkdf2Sha256DerivedKey(password, salt, c, dklen);
             return Decrypt(mac, iv, cipherText, derivedKey);
         }
 
@@ -85,7 +126,7 @@ namespace Nethereum.KeyStore.Crypto
         {
             var generatedMac = GenerateMac(derivedKey, cipherText);
             if (generatedMac.ToHex() != mac.ToHex())
-                throw new Exception("Cannot derived the same mac as the one provided from the cipher and derived key");
+                throw new DecryptionException("Cannot derive the same mac as the one provided from the cipher and derived key");
         }
 
         public byte[] GetPasswordAsBytes(string password)

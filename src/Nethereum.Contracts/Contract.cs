@@ -8,25 +8,53 @@ using Nethereum.Hex.HexTypes;
 using Nethereum.RPC;
 using Nethereum.RPC.Eth.DTOs;
 using Nethereum.RPC.Eth.Filters;
+using System.Reflection;
+using System.Collections.Generic;
 
 namespace Nethereum.Contracts
 {
     public class Contract
     {
+        private BlockParameter defaultBlock;
+
         public Contract(EthApiService eth, string abi, string contractAddress)
         {
             Eth = eth;
-            ContractABI = new ABIDeserialiser().DeserialiseContract(abi);
-            Address = contractAddress;
+            ContractBuilder = new ContractBuilder(abi, contractAddress);
+            DefaultBlock = eth.DefaultBlock;
+        }
+
+        public Contract(EthApiService eth, Type contractMessageType, string contractAddress)
+        {
+            Eth = eth;
+            var abiExtractor = new AttributesToABIExtractor();
+            ContractBuilder = new ContractBuilder(contractMessageType, contractAddress);
+            DefaultBlock = eth.DefaultBlock;
+        }
+
+        public Contract(EthApiService eth, Type[] contractMessagesTypes, string contractAddress)
+        {
+            Eth = eth;
+            var abiExtractor = new AttributesToABIExtractor();
+            ContractBuilder = new ContractBuilder(contractMessagesTypes, contractAddress);
+            DefaultBlock = eth.DefaultBlock;
         }
 
         private EthNewFilter EthNewFilter => Eth.Filters.NewFilter;
 
-        public ContractABI ContractABI { get; set; }
+        public ContractBuilder ContractBuilder { get; set; }
 
-        public BlockParameter DefaultBlock { get; set; }
+        public BlockParameter DefaultBlock
+        {
+            get { return defaultBlock; }
+            set
+            {
+                defaultBlock = value;
+                SetDefaultBlock();
+            }
+        }
 
-        public string Address { get; set; }
+        public string Address => ContractBuilder.Address;
 
         public EthApiService Eth { get; }
 
@@ -38,46 +66,46 @@ namespace Nethereum.Contracts
 
         public NewFilterInput GetDefaultFilterInput(BlockParameter fromBlock = null, BlockParameter toBlock = null)
         {
-            var ethFilterInput = new NewFilterInput
-            {
-                FromBlock = fromBlock,
-                ToBlock = toBlock ?? BlockParameter.CreateLatest(),
-                Address = new[] {Address}
-            };
-            return ethFilterInput;
+            return ContractBuilder.GetDefaultFilterInput(fromBlock, toBlock);
         }
 
         public Event GetEvent(string name)
         {
-            return new Event(this, GetEventAbi(name));
+            return new Event(this, GetEventBuilder(name));
         }
 
         public Function<TFunction> GetFunction<TFunction>()
         {
-            var function = FunctionAttribute.GetAttribute<TFunction>();
-            if (function == null) throw new Exception("Invalid TFunction required a Function Attribute");
-            return new Function<TFunction>(this, GetFunctionAbi(function.Name));
+            return new Function<TFunction>(this, GetFunctionBuilder<TFunction>());
         }
 
         public Function GetFunction(string name)
         {
-            return new Function(this, GetFunctionAbi(name));
+            return new Function(this, GetFunctionBuilder(name));
         }
 
-        private EventABI GetEventAbi(string name)
+        private EventBuilder GetEventBuilder(string name)
         {
-            if (ContractABI == null) throw new Exception("Contract abi not initialised");
-            var eventAbi = ContractABI.Events.FirstOrDefault(x => x.Name == name);
-            if (eventAbi == null) throw new Exception("Event not found");
-            return eventAbi;
+            return ContractBuilder.GetEventBuilder(name);
         }
 
-        private FunctionABI GetFunctionAbi(string name)
+        private FunctionBuilder GetFunctionBuilder(string name)
         {
-            if (ContractABI == null) throw new Exception("Contract abi not initialised");
-            var functionAbi = ContractABI.Functions.FirstOrDefault(x => x.Name == name);
-            if (functionAbi == null) throw new Exception("Function not found:" + name);
-            return functionAbi;
+            return ContractBuilder.GetFunctionBuilder(name);
         }
+
+        private FunctionBuilder<TFunctionInput> GetFunctionBuilder<TFunctionInput>()
+        {
+            return ContractBuilder.GetFunctionBuilder<TFunctionInput>();
+        }
+
+        private void SetDefaultBlock()
+        {
+            if (ContractBuilder != null)
+            {
+                ContractBuilder.DefaultBlock = DefaultBlock;
+            }
+        }
+
     }
 }

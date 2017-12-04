@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using NBitcoin.BouncyCastle.Math;
 using Nethereum.Hex.HexTypes;
 using Nethereum.Web3.Accounts;
 using Xunit;
@@ -30,19 +29,17 @@ namespace Nethereum.Web3.Tests.Issues
 
             var gethTester = GethTesterFactory.GetLocal(web3);
 
+            await gethTester.UnlockAccount();
             var receipt = await gethTester.DeployTestContractLocal(byteCode);
 
             var contract = web3.Eth.GetContract(abi, receipt.ContractAddress);
             var addChargeFunction = contract.GetFunction("addCharge");
 
-            //await gethTester.UnlockAccount();
-            await gethTester.StartMining();
-
-            var tx = await addChargeFunction.SendTransactionAsync(gethTester.Account, 20);
-            tx = await addChargeFunction.SendTransactionAsync(gethTester.Account, 30);
+            var gas = await addChargeFunction.EstimateGasAsync(gethTester.Account, null,  null, 20);
+            var tx = await addChargeFunction.SendTransactionAsync(gethTester.Account, gas, null, 20);
+            tx = await addChargeFunction.SendTransactionAsync(gethTester.Account, gas, null, 30);
             receipt = await gethTester.GetTransactionReceipt(tx);
 
-            await gethTester.StopMining();
 
             var chargers = contract.GetFunction("getChargers");
 

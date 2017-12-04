@@ -2,6 +2,7 @@
 using Nethereum.KeyStore.Crypto;
 using Nethereum.KeyStore.Model;
 using Newtonsoft.Json;
+using Org.BouncyCastle.Utilities;
 
 namespace Nethereum.KeyStore
 {
@@ -42,11 +43,14 @@ namespace Nethereum.KeyStore
             if (address == null) throw new ArgumentNullException(nameof(address));
             if (kdfParams == null) throw new ArgumentNullException(nameof(kdfParams));
 
-            if (privateKey.Length != 32) throw new ArgumentException("Private key should be 32 bytes", nameof(privateKey));
+            //Validate length unsigned but store the parameter
+            var keyValidation = BigIntegers.AsUnsignedByteArray(new Org.BouncyCastle.Math.BigInteger(privateKey));
+
+            if (keyValidation.Length != 32) throw new ArgumentException("Private key should be 32 bytes", nameof(privateKey));
 
             var salt = RandomBytesGenerator.GenerateRandomSalt();
 
-            var derivedKey = GenerateDerivedKey(KeyStoreCrypto.GetPasswordAsBytes(password), salt, kdfParams);
+            var derivedKey = GenerateDerivedKey(password, salt, kdfParams);
 
             var cipherKey = KeyStoreCrypto.GenerateCipherKey(derivedKey);
 
@@ -101,7 +105,7 @@ namespace Nethereum.KeyStore
 
         public abstract string GetKdfType();
 
-        protected abstract byte[] GenerateDerivedKey(byte[] pasword, byte[] salt, T kdfParams);
+        protected abstract byte[] GenerateDerivedKey(string pasword, byte[] salt, T kdfParams);
 
         protected abstract T GetDefaultParams();
 

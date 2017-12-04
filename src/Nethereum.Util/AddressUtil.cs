@@ -1,8 +1,10 @@
 ﻿using System.Globalization;
 using Nethereum.Hex.HexConvertors.Extensions;
+using System;
 
 namespace Nethereum.Util
 {
+
     public class AddressUtil
     {
         public string ConvertToChecksumAddress(string address)
@@ -23,6 +25,12 @@ namespace Nethereum.Util
         {
             address = address.RemoveHexPrefix();
             return address.PadLeft(40, '0').EnsureHexPrefix();
+        }
+
+        public bool IsValidAddressLength(string address)
+        {
+            address = address.RemoveHexPrefix();
+            return address.Length == 40;
         }
 
         public bool IsChecksumAddress(string address)

@@ -21,15 +21,15 @@ namespace Nethereum.KeyStore
         {
         }
 
-        protected override byte[] GenerateDerivedKey(byte[] password, byte[] salt, ScryptParams kdfParams)
+        protected override byte[] GenerateDerivedKey(string password, byte[] salt, ScryptParams kdfParams)
         {
-            return KeyStoreCrypto.GenerateDerivedScryptKey(password, salt, kdfParams.N, kdfParams.R,
+            return KeyStoreCrypto.GenerateDerivedScryptKey(KeyStoreCrypto.GetPasswordAsBytes(password), salt, kdfParams.N, kdfParams.R,
                 kdfParams.P, kdfParams.Dklen);
         }
 
         protected override ScryptParams GetDefaultParams()
         {
-            return new ScryptParams() { Dklen = 32, N = 262145, R = 1, P = 8 };
+            return new ScryptParams() { Dklen = 32, N = 262144, R = 1, P = 8 };
         }
 
         public override byte[] DecryptKeyStore(string password, KeyStore<ScryptParams> keyStore)

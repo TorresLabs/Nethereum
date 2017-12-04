@@ -1,11 +1,11 @@
 ﻿using Nethereum.Hex.HexTypes;
-using Nethereum.Web3.Interceptors;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Nethereum.Geth;
+using Nethereum.Web3.Accounts;
 using Xunit;
 
 namespace Nethereum.Web3.Tests
@@ -19,19 +19,17 @@ namespace Nethereum.Web3.Tests
             var senderAddress = "0x12890d2cce102216644c59daE5baed380d84830c";
             var receiveAddress = "0x13f022d72158410433cbd66f5dd8bf6d2d129924";
             var web3 = new Web3Geth();
-            var transactionInterceptor = new TransactionRequestToOfflineSignedTransactionInterceptor(senderAddress, privateKey, web3);
+            var transactionInterceptor = new AccountTransactionSigningInterceptor(privateKey, web3);
             web3.Client.OverridingRequestInterceptor = transactionInterceptor;
 
             var txId = await web3.Eth.Transactions.SendTransaction.SendRequestAsync(new RPC.Eth.DTOs.TransactionInput() { From = senderAddress, To = receiveAddress, Value = new Hex.HexTypes.HexBigInteger(10) });
 
-            await web3.Miner.Start.SendRequestAsync(4);
             var receipt = await web3.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(txId);
             while (receipt == null)
             {
                 Thread.Sleep(1000);
                 receipt = await web3.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(txId);
             }
-            await web3.Miner.Stop.SendRequestAsync();
             Assert.Equal(txId, receipt.TransactionHash);
 
         }
@@ -51,13 +49,11 @@ namespace Nethereum.Web3.Tests
             var senderAddress = "0x12890d2cce102216644c59daE5baed380d84830c";
 
             var web3 = new Web3Geth();
-            var transactionInterceptor = new TransactionRequestToOfflineSignedTransactionInterceptor(senderAddress, privateKey, web3);
+            var transactionInterceptor = new AccountTransactionSigningInterceptor(privateKey, web3);
             web3.Client.OverridingRequestInterceptor = transactionInterceptor;
 
             var txId = await web3.Eth.DeployContract.SendRequestAsync(abi, contractByteCode, senderAddress, new HexBigInteger(900000), 7);
 
-
-            await web3.Miner.Start.SendRequestAsync(4);
             var receipt = await web3.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(txId);
             while (receipt == null)
             {
@@ -79,8 +75,6 @@ namespace Nethereum.Web3.Tests
                 Thread.Sleep(1000);
                 receipt = await web3.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(txId);
             }
-
-            await web3.Miner.Stop.SendRequestAsync();
 
             Assert.Equal(txId, receipt.TransactionHash);
         }

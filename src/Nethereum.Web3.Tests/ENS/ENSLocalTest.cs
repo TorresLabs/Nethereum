@@ -3,9 +3,9 @@ using Nethereum.ENS;
 using Nethereum.Geth;
 using Nethereum.Hex.HexConvertors.Extensions;
 using Nethereum.Hex.HexTypes;
-using Nethereum.RPC.Eth.TransactionManagers;
 using Nethereum.Web3.Accounts;
-using Nethereum.Web3.Transactions;
+using Nethereum.Web3.Accounts.Managed;
+using Nethereum.RPC.TransactionReceipts;
 using Xunit;
 
 namespace Nethereum.Web3.Tests
@@ -26,12 +26,11 @@ namespace Nethereum.Web3.Tests
             var web3 = new Web3(new ManagedAccount(addressFrom, pass), ClientFactory.GetClient());
             var web3Geth = new Web3Geth(ClientFactory.GetClient());
 
-            var txService = new TransactionReceiptPollingService(web3);
+            var txService = new TransactionReceiptPollingService(web3.TransactionManager);
 
             // var addressFrom = (await web3.Eth.Accounts.SendRequestAsync()).First();
             //uncomment to use geth instead of test-rpc
-        
-            await web3Geth.Miner.Start.SendRequestAsync();
+
             //deploy ENS contract
             var ensAddress = await txService.DeployContractAndGetAddressAsync(() => EnsService.DeployContractAsync(web3, addressFrom, defaultGas));
             
@@ -96,8 +95,6 @@ namespace Nethereum.Web3.Tests
             //and get the address from the resolver
             var theAddress = await resolverService.AddrAsyncCall(fullNameNode.HexToByteArray());
             Assert.Equal(addressToResolve, theAddress);
-
-            await web3Geth.Miner.Stop.SendRequestAsync();
 
         }
     }

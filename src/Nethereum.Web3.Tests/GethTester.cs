@@ -3,8 +3,8 @@ using System.Threading.Tasks;
 using Nethereum.Geth;
 using Nethereum.Hex.HexTypes;
 using Nethereum.RPC.Eth.DTOs;
-using Nethereum.RPC.Eth.TransactionManagers;
 using Nethereum.Web3.Accounts;
+using Nethereum.Web3.Accounts.Managed;
 using Xunit;
 
 namespace Nethereum.Web3.Tests
@@ -27,20 +27,6 @@ namespace Nethereum.Web3.Tests
             return await Web3.Personal.UnlockAccount.SendRequestAsync(Account, Password, 600);
         }
 
-        public async Task<bool> StartMining()
-        {
-            return await new Web3Geth(Web3.Client).Miner.Start.SendRequestAsync();
-        }
-
-        public async Task<bool> StopMining()
-        {
-            return await new Web3Geth(Web3.Client).Miner.Stop.SendRequestAsync();
-        }
-
-        public async Task<bool> LockAccount()
-        {
-            return await Web3.Personal.LockAccount.SendRequestAsync(Account);
-        }
 
         public async Task<TransactionReceipt> DeployTestContractLocal(string contractByteCode)
         {
@@ -49,15 +35,11 @@ namespace Nethereum.Web3.Tests
             Assert.NotNull(transactionHash);
             //the contract should be mining now
 
-            var result = await StartMining();
-            Assert.True(result, "Mining should have started");
             //get the contract address 
             var receipt = await GetTransactionReceipt(transactionHash);
 
             Assert.NotNull(receipt.ContractAddress);
 
-            result = await StopMining();
-            Assert.True(result, "Mining should have stopped");
             return receipt;
         }
 
@@ -67,16 +49,12 @@ namespace Nethereum.Web3.Tests
 
             var transactionHash = await Web3.Eth.DeployContract.SendRequestAsync(abi, contractByteCode, Account, new HexBigInteger(900000), constructorParameters);
             Assert.NotNull(transactionHash);
-            //the contract should be mining now
-            var result = await StartMining();
-            Assert.True(result, "Mining should have started");
+  
             //get the contract address 
             var receipt = await GetTransactionReceipt(transactionHash);
 
             Assert.NotNull(receipt.ContractAddress);
 
-            result = await StopMining();
-            Assert.True(result, "Mining should have stopped");
             return receipt;
         }
 

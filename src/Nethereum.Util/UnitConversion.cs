@@ -3,6 +3,7 @@ using System.Numerics;
 
 namespace Nethereum.Util
 {
+
     public class UnitConversion
     {
         public enum EthUnit
@@ -29,8 +30,8 @@ namespace Nethereum.Util
             Grand,
             Einstein,
             Mether,
-            Gether
-           // Tether Not supported
+            Gether,
+            Tether 
         }
 
         private static UnitConversion convert;
@@ -44,19 +45,48 @@ namespace Nethereum.Util
             }
         }
 
+        /// <summary>
+        /// Converts from wei to a unit, NOTE: When the total number of digits is bigger than 29 they will be rounded the less significant digits
+        /// </summary>
         public decimal FromWei(BigInteger value, BigInteger toUnit)
         {
-            return (decimal) value/(decimal) toUnit;
+            return FromWei(value, GetEthUnitValueLength(toUnit));
         }
 
+        /// <summary>
+        /// Converts from wei to a unit, NOTE: When the total number of digits is bigger than 29 they will be rounded the less significant digits
+        /// </summary>
         public decimal FromWei(BigInteger value, EthUnit toUnit = EthUnit.Ether)
         {
             return FromWei(value, GetEthUnitValue(toUnit));
         }
 
+        /// <summary>
+        /// Converts from wei to a unit, NOTE: When the total number of digits is bigger than 29 they will be rounded the less significant digits
+        /// </summary>
         public decimal FromWei(BigInteger value, int decimalPlacesToUnit)
         {
-            return FromWei(value, BigInteger.Pow(10, decimalPlacesToUnit));
+            return (decimal)new BigDecimal(value, decimalPlacesToUnit * -1);
+        }
+
+        public BigDecimal FromWeiToBigDecimal(BigInteger value, int decimalPlacesToUnit)
+        {
+            return new BigDecimal(value, decimalPlacesToUnit * -1);
+        }
+
+        public BigDecimal FromWeiToBigDecimal(BigInteger value, EthUnit toUnit = EthUnit.Ether)
+        {
+            return FromWeiToBigDecimal(value, GetEthUnitValue(toUnit));
+        }
+
+        public BigDecimal FromWeiToBigDecimal(BigInteger value, BigInteger toUnit)
+        {
+            return FromWeiToBigDecimal(value, GetEthUnitValueLength(toUnit));
+        }
+
+        private int GetEthUnitValueLength(BigInteger unitValue)
+        {
+            return unitValue.ToString().Length - 1;
         }
 
         public BigInteger GetEthUnitValue(EthUnit ethUnit)
@@ -67,13 +97,11 @@ namespace Nethereum.Util
                     return BigInteger.Parse("1");
                 case EthUnit.Kwei:
                     return BigInteger.Parse("1000");
-                case EthUnit.Ada:
+                case EthUnit.Babbage:
                     return BigInteger.Parse("1000");
                 case EthUnit.Femtoether:
                     return BigInteger.Parse("1000");
                 case EthUnit.Mwei:
-                    return BigInteger.Parse("1000000");
-                case EthUnit.Babbage:
                     return BigInteger.Parse("1000000");
                 case EthUnit.Picoether:
                     return BigInteger.Parse("1000000");
@@ -109,9 +137,8 @@ namespace Nethereum.Util
                     return BigInteger.Parse("1000000000000000000000000");
                 case EthUnit.Gether:
                     return BigInteger.Parse("1000000000000000000000000000");
-                 //Not supported 
-                //case EthUnit.Tether:
-                //    return BigInteger.Parse("1000000000000000000000000000000");
+                case EthUnit.Tether:
+                    return BigInteger.Parse("1000000000000000000000000000000");
                                                         
             }
             throw new NotImplementedException();
@@ -119,21 +146,24 @@ namespace Nethereum.Util
 
         public BigInteger ToWei(decimal amount, BigInteger fromUnit)
         {
-            var maxDigits = fromUnit.ToString().Length - 1;
-            var stringAmount = amount.ToString("#.#############################", System.Globalization.CultureInfo.InvariantCulture).TrimEnd('0');
-            var decimalPosition = stringAmount.IndexOf('.');
-            var decimalPlaces = decimalPosition == -1 ? 0 : stringAmount.Length - decimalPosition - 1;
-            if (decimalPlaces == 0)
-            {
-                return BigInteger.Parse(stringAmount) * fromUnit;
-            }
+            return ToWei((BigDecimal)amount, fromUnit);
+        }
 
-            if (decimalPlaces > maxDigits)
-            {
-                return BigInteger.Parse(stringAmount.Substring(0, decimalPosition) + stringAmount.Substring(decimalPosition + 1, maxDigits));
-            }
+        public BigInteger ToWei(BigDecimal amount, BigInteger fromUnit)
+        {
+            var bigDecimalFromUnit = new BigDecimal(fromUnit, 0);
+            var conversion = amount * bigDecimalFromUnit;
+            return conversion.Floor().Mantissa;
+        }
 
-            return BigInteger.Parse(stringAmount.Substring(0, decimalPosition) + stringAmount.Substring(decimalPosition + 1).PadRight(maxDigits, '0'));   
+        public BigInteger ToWei(BigDecimal amount, EthUnit fromUnit = EthUnit.Ether)
+        {
+            return ToWei(amount, GetEthUnitValue(fromUnit));
+        }
+
+        public BigInteger ToWei(BigDecimal amount, int decimalPlacesFromUnit)
+        {
+            return ToWei(amount, BigInteger.Pow(10, decimalPlacesFromUnit));
         }
 
 
@@ -200,5 +230,28 @@ namespace Nethereum.Util
                 return currentNumberOfDecimals;
             return CalculateNumberOfDecimalPlaces(value, maxNumberOfDecimals, currentNumberOfDecimals + 1);
         }
+
+        //public BigInteger ToWei(decimal amount, BigInteger fromUnit)
+        //{
+
+            //var maxDigits = fromUnit.ToString().Length - 1;
+            //var stringAmount = amount.ToString("#.#############################", System.Globalization.CultureInfo.InvariantCulture);
+            //if (stringAmount.IndexOf(".") == -1)
+            //{
+            //    return BigInteger.Parse(stringAmount) * fromUnit;
+            //}
+
+            //stringAmount = stringAmount.TrimEnd('0');
+            //var decimalPosition = stringAmount.IndexOf('.');
+            //var decimalPlaces = decimalPosition == -1 ? 0 : stringAmount.Length - decimalPosition - 1;
+
+
+            //if (decimalPlaces > maxDigits)
+            //{
+            //    return BigInteger.Parse(stringAmount.Substring(0, decimalPosition) + stringAmount.Substring(decimalPosition + 1, maxDigits));
+            //}
+
+            //return BigInteger.Parse(stringAmount.Substring(0, decimalPosition) + stringAmount.Substring(decimalPosition + 1).PadRight(maxDigits, '0'));   
+        //}
     }
 }

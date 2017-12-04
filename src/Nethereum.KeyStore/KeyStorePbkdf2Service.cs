@@ -22,14 +22,14 @@ namespace Nethereum.KeyStore
 
         }
 
-        protected override byte[] GenerateDerivedKey(byte[] pasword, byte[] salt, Pbkdf2Params kdfParams)
+        protected override byte[] GenerateDerivedKey(string pasword, byte[] salt, Pbkdf2Params kdfParams)
         {
             return KeyStoreCrypto.GeneratePbkdf2Sha256DerivedKey(pasword, salt, kdfParams.Count, kdfParams.Dklen);
         }
 
         protected override Pbkdf2Params GetDefaultParams()
         {
-            return new Pbkdf2Params() { Dklen = 32, Count = 262145, Prf = "hmac-sha256" };
+            return new Pbkdf2Params() { Dklen = 32, Count = 262144, Prf = "hmac-sha256" };
         }
 
         public override byte[] DecryptKeyStore(string password, KeyStore<Pbkdf2Params> keyStore)

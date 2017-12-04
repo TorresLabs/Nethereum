@@ -4,196 +4,33 @@ using Nethereum.ABI.FunctionEncoding;
 using Nethereum.ABI.Model;
 using Nethereum.Hex.HexTypes;
 using Nethereum.RPC.Eth.DTOs;
-using Nethereum.RPC.Eth.TransactionManagers;
 using Nethereum.RPC.Eth.Transactions;
+using Nethereum.RPC.TransactionManagers;
+using System.Threading;
 
 namespace Nethereum.Contracts
 {
     public abstract class FunctionBase
     {
         private readonly Contract _contract;
-
-        protected FunctionBase(Contract contract, FunctionABI functionAbi)
-        {
-            FunctionABI = functionAbi;
-            _contract = contract;
-            FunctionCallDecoder = new FunctionCallDecoder();
-            FunctionCallEncoder = new FunctionCallEncoder();
-        }
+        protected FunctionBuilderBase FunctionBuilderBase { get; set; }
+        public BlockParameter DefaultBlock => _contract.DefaultBlock;
 
         private EthCall EthCall => _contract.Eth.Transactions.Call;
-        private EthEstimateGas EthEstimateGas => _contract.Eth.Transactions.EstimateGas;
         protected ITransactionManager TransactionManager => _contract.Eth.TransactionManager;
-
-        public BlockParameter DefaultBlock => _contract.DefaultBlock;
 
         public string ContractAddress => _contract.Address;
 
-        protected FunctionCallDecoder FunctionCallDecoder { get; set; }
-
-        protected FunctionCallEncoder FunctionCallEncoder { get; set; }
-
-        public FunctionABI FunctionABI { get; protected set; }
-
-        public List<ParameterOutput> DecodeInput(string data)
+        protected FunctionBase(Contract contract, FunctionBuilderBase functionBuilder)
         {
-            return FunctionCallDecoder.DecodeFunctionInput(FunctionABI.Sha3Signature, data, FunctionABI.InputParameters);
+            FunctionBuilderBase = functionBuilder;
+            _contract = contract;
         }
 
         public Task<string> SendTransactionAsync(string from, HexBigInteger gas,
-            HexBigInteger value)
+          HexBigInteger value)
         {
-            var encodedInput = FunctionCallEncoder.EncodeRequest(FunctionABI.Sha3Signature);
-            return SendTransactionAsync(encodedInput, from, gas, value);
-        }
-
-        protected async Task<TReturn> CallAsync<TReturn>(string encodedFunctionCall)
-        {
-            var result =
-                await
-                    EthCall.SendRequestAsync(new CallInput(encodedFunctionCall, ContractAddress), DefaultBlock)
-                        .ConfigureAwait(false);
-
-            return
-                FunctionCallDecoder.DecodeSimpleTypeOutput<TReturn>(
-                    GetFirstParameterOrNull(FunctionABI.OutputParameters), result);
-        }
-
-        protected async Task<TReturn> CallAsync<TReturn>(string encodedFunctionCall, BlockParameter block)
-        {
-            var result =
-                await
-                    EthCall.SendRequestAsync(new CallInput(encodedFunctionCall, ContractAddress), block)
-                        .ConfigureAwait(false);
-
-            return
-                FunctionCallDecoder.DecodeSimpleTypeOutput<TReturn>(
-                    GetFirstParameterOrNull(FunctionABI.OutputParameters), result);
-        }
-
-        protected async Task<TReturn> CallAsync<TReturn>(string encodedFunctionCall, string from, HexBigInteger gas,
-            HexBigInteger value)
-        {
-            var result =
-                await
-                    EthCall.SendRequestAsync(new CallInput(encodedFunctionCall, ContractAddress, @from, gas, value),
-                        DefaultBlock).ConfigureAwait(false);
-            return
-                FunctionCallDecoder.DecodeSimpleTypeOutput<TReturn>(
-                    GetFirstParameterOrNull(FunctionABI.OutputParameters), result);
-        }
-
-        protected async Task<TReturn> CallAsync<TReturn>(string encodedFunctionCall, string from, HexBigInteger gas,
-           HexBigInteger value, BlockParameter block)
-        {
-            var result =
-                await
-                    EthCall.SendRequestAsync(new CallInput(encodedFunctionCall, ContractAddress, @from, gas, value),
-                        block).ConfigureAwait(false);
-            return
-                FunctionCallDecoder.DecodeSimpleTypeOutput<TReturn>(
-                    GetFirstParameterOrNull(FunctionABI.OutputParameters), result);
-        }
-
-
-        protected async Task<TReturn> CallAsync<TReturn>(TReturn functionOuput, string encodedFunctionCall)
-        {
-            var result =
-                await
-                    EthCall.SendRequestAsync(new CallInput(encodedFunctionCall, ContractAddress), DefaultBlock)
-                        .ConfigureAwait(false);
-
-            return FunctionCallDecoder.DecodeFunctionOutput(functionOuput, result);
-        }
-
-        protected async Task<TReturn> CallAsync<TReturn>(TReturn functionOuput, string encodedFunctionCall, BlockParameter block)
-        {
-            var result =
-                await
-                    EthCall.SendRequestAsync(new CallInput(encodedFunctionCall, ContractAddress), block)
-                        .ConfigureAwait(false);
-
-            return FunctionCallDecoder.DecodeFunctionOutput(functionOuput, result);
-        }
-
-        protected async Task<TReturn> CallAsync<TReturn>(TReturn functionOuput, string encodedFunctionCall, string from,
-            HexBigInteger gas, HexBigInteger value)
-        {
-            var result =
-                await
-                    EthCall.SendRequestAsync(new CallInput(encodedFunctionCall, ContractAddress, @from, gas, value),
-                        DefaultBlock).ConfigureAwait(false);
-            return FunctionCallDecoder.DecodeFunctionOutput(functionOuput, result);
-        }
-
-        protected async Task<TReturn> CallAsync<TReturn>(TReturn functionOuput, string encodedFunctionCall, string from,
-        HexBigInteger gas, HexBigInteger value, BlockParameter block)
-        {
-            var result =
-                await
-                    EthCall.SendRequestAsync(new CallInput(encodedFunctionCall, ContractAddress, @from, gas, value),
-                        block).ConfigureAwait(false);
-            return FunctionCallDecoder.DecodeFunctionOutput(functionOuput, result);
-        }
-
-        protected async Task<TReturn> CallAsync<TReturn>(TReturn functionOuput, string encodedFunctionCall,
-            CallInput callInput)
-        {
-            callInput.Data = encodedFunctionCall;
-            var result = await EthCall.SendRequestAsync(callInput, DefaultBlock).ConfigureAwait(false);
-            return FunctionCallDecoder.DecodeFunctionOutput(functionOuput, result);
-        }
-
-        protected async Task<TReturn> CallAsync<TReturn>(TReturn functionOuput, string encodedFunctionCall,
-            CallInput callInput, BlockParameter block)
-        {
-            callInput.Data = encodedFunctionCall;
-            var result = await EthCall.SendRequestAsync(callInput, block).ConfigureAwait(false);
-            return FunctionCallDecoder.DecodeFunctionOutput(functionOuput, result);
-        }
-
-        protected async Task<HexBigInteger> EstimateGasFromEncAsync(string encodedFunctionCall)
-        {
-            return
-                await
-                    EthEstimateGas.SendRequestAsync(new CallInput(encodedFunctionCall, ContractAddress))
-                        .ConfigureAwait(false);
-        }
-
-        protected async Task<HexBigInteger> EstimateGasFromEncAsync(string encodedFunctionCall, string from,
-            HexBigInteger gas, HexBigInteger value)
-        {
-            return
-                await
-                    EthEstimateGas.SendRequestAsync(new CallInput(encodedFunctionCall, ContractAddress, @from, gas,
-                        value)).ConfigureAwait(false);
-        }
-
-        protected async Task<HexBigInteger> EstimateGasFromEncAsync(string encodedFunctionCall, CallInput callInput
-        )
-        {
-            callInput.Data = encodedFunctionCall;
-            return await EthEstimateGas.SendRequestAsync(callInput).ConfigureAwait(false);
-        }
-
-        protected Task<string> SendTransactionAsync(string encodedFunctionCall)
-        {
-            return SendTransactionAsync(new TransactionInput(encodedFunctionCall, ContractAddress));
-        }
-
-        protected Task<string> SendTransactionAsync(string encodedFunctionCall, string from, HexBigInteger gas,
-            HexBigInteger value)
-        {
-            return
-                SendTransactionAsync(new TransactionInput(encodedFunctionCall, ContractAddress, from, gas,
-                    value));
-        }
-
-        protected Task<string> SendTransactionAsync(string encodedFunctionCall,
-            TransactionInput input)
-        {
-            input.Data = encodedFunctionCall;
-            return SendTransactionAsync(input);
+            return SendTransactionAsync(FunctionBuilderBase.CreateTransactionInput(from, gas, value));
         }
 
         protected Task<string> SendTransactionAsync(TransactionInput transactionInput)
@@ -201,11 +38,131 @@ namespace Nethereum.Contracts
             return TransactionManager.SendTransactionAsync(transactionInput);
         }
 
-        private Parameter GetFirstParameterOrNull(Parameter[] parameters)
+#if !DOTNET35
+        protected Task<TransactionReceipt> SendTransactionAndWaitForReceiptAsync(TransactionInput transactionInput, CancellationTokenSource receiptRequestCancellationToken = null)
         {
-            if (parameters == null) return null;
-            if (parameters.Length == 0) return null;
-            return parameters[0];
+            return TransactionManager.TransactionReceiptService.SendRequestAsync(transactionInput, receiptRequestCancellationToken);
+        }
+#endif
+
+#if !DOTNET35
+        protected async Task<TReturn> CallAsync<TReturn>(CallInput callInput)
+        {
+            var result =
+                await
+                    EthCall.SendRequestAsync(callInput, DefaultBlock)
+                        .ConfigureAwait(false);
+
+
+            return FunctionBuilderBase.DecodeSimpleTypeOutput<TReturn>(result);
+        }
+
+        protected async Task<TReturn> CallAsync<TReturn>(CallInput callInput, BlockParameter block)
+        {
+            var result =
+                await
+                    EthCall.SendRequestAsync(callInput, block)
+                        .ConfigureAwait(false);
+
+            return FunctionBuilderBase.DecodeSimpleTypeOutput<TReturn>(result);
+        }
+
+        protected async Task<TReturn> CallAsync<TReturn>(TReturn functionOuput, CallInput callInput)
+        {
+            var result =
+                await
+                    EthCall.SendRequestAsync(callInput, DefaultBlock)
+                        .ConfigureAwait(false);
+
+            return FunctionBuilderBase.DecodeDTOTypeOutput<TReturn>(functionOuput, result);
+        }
+
+        protected async Task<TReturn> CallAsync<TReturn>(TReturn functionOuput, CallInput callInput, BlockParameter block)
+        {
+            var result =
+                await
+                    EthCall.SendRequestAsync(callInput, block)
+                        .ConfigureAwait(false);
+
+            return FunctionBuilderBase.DecodeDTOTypeOutput<TReturn>(functionOuput, result);
+        }
+
+        protected async Task<HexBigInteger> EstimateGasFromEncAsync(CallInput callInput)
+        {
+            return
+                await
+                    TransactionManager.EstimateGasAsync(callInput)
+                        .ConfigureAwait(false);
+        }
+#else
+        protected Task<TReturn> CallAsync<TReturn>(CallInput callInput)
+        {
+
+           return EthCall.SendRequestAsync(callInput, DefaultBlock).ContinueWith(result =>
+           {
+               if (result.Exception != null) throw result.Exception;
+               return FunctionBuilderBase.DecodeSimpleTypeOutput<TReturn>(result.Result);
+           });
+        }
+
+        protected Task<TReturn> CallAsync<TReturn>(CallInput callInput, BlockParameter block)
+        {
+            return EthCall.SendRequestAsync(callInput, block).ContinueWith(result =>
+            {
+                if (result.Exception != null) throw result.Exception;
+                return FunctionBuilderBase.DecodeSimpleTypeOutput<TReturn>(result.Result);
+            });
+           
+        }
+
+        protected  Task<TReturn> CallAsync<TReturn>(TReturn functionOuput, CallInput callInput)
+        {
+            return EthCall.SendRequestAsync(callInput, DefaultBlock).ContinueWith(result =>
+            {
+                if (result.Exception != null) throw result.Exception;
+                return FunctionBuilderBase.DecodeDTOTypeOutput<TReturn>(functionOuput, result.Result);
+            });
+        }
+
+        protected  Task<TReturn> CallAsync<TReturn>(TReturn functionOuput, CallInput callInput, BlockParameter block)
+        {
+            return EthCall.SendRequestAsync(callInput, block).ContinueWith(result =>
+            {
+                if (result.Exception != null) throw result.Exception;
+                return FunctionBuilderBase.DecodeDTOTypeOutput<TReturn>(functionOuput, result.Result);
+            });
+        }
+
+        protected Task<HexBigInteger> EstimateGasFromEncAsync(CallInput callInput)
+        {
+            return TransactionManager.EstimateGasAsync(callInput);          
+        }
+#endif
+
+        public List<ParameterOutput> DecodeInput(string data)
+        {
+            return FunctionBuilderBase.DecodeInput(data);
+        }
+
+        public TReturn DecodeSimpleTypeOutput<TReturn>(string output)
+        {
+            return FunctionBuilderBase.DecodeSimpleTypeOutput<TReturn>(output);
+        }
+
+        public TReturn DecodeDTOTypeOutput<TReturn>(TReturn functionOuput, string output)
+        {
+            return FunctionBuilderBase.DecodeDTOTypeOutput<TReturn>(functionOuput, output);
+        }
+
+        public TReturn DecodeDTOTypeOutput<TReturn>(string output) where TReturn : new()
+        {
+            return FunctionBuilderBase.DecodeDTOTypeOutput<TReturn>(output);
+        }
+
+        public TransactionInput CreateTransactionInput(string from, HexBigInteger gas,
+           HexBigInteger value)
+        {
+            return FunctionBuilderBase.CreateTransactionInput(from, gas, value);
         }
     }
 }

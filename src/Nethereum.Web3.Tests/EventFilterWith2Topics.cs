@@ -1,10 +1,11 @@
-using System;
-using System.Linq;
-using System.Threading.Tasks;
 using Nethereum.ABI.FunctionEncoding.Attributes;
-using Nethereum.Geth;
 using Nethereum.Hex.HexTypes;
 using Nethereum.RPC.Eth.DTOs;
+using Nethereum.Web3.Accounts;
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace Nethereum.Web3.Tests
@@ -54,35 +55,23 @@ namespace Nethereum.Web3.Tests
                 @"[{""constant"":false,""inputs"":[{""name"":""a"",""type"":""uint256""}],""name"":""multiply1"",""outputs"":[{""name"":""d"",""type"":""uint256""}],""type"":""function""},{""constant"":false,""inputs"":[{""name"":""a"",""type"":""uint256""},{""name"":""b"",""type"":""uint256""}],""name"":""multiply2"",""outputs"":[{""name"":""d"",""type"":""uint256""}],""type"":""function""},{""constant"":false,""inputs"":[{""name"":""a"",""type"":""uint256""}],""name"":""multiply"",""outputs"":[{""name"":""d"",""type"":""uint256""}],""type"":""function""},{""inputs"":[{""name"":""multiplier"",""type"":""uint256""}],""type"":""constructor""},{""anonymous"":false,""inputs"":[{""indexed"":true,""name"":""a"",""type"":""uint256""},{""indexed"":true,""name"":""result"",""type"":""uint256""}],""name"":""Multiplied"",""type"":""event""},{""anonymous"":false,""inputs"":[{""indexed"":true,""name"":""a"",""type"":""uint256""},{""indexed"":true,""name"":""result"",""type"":""uint256""},{""indexed"":true,""name"":""sender"",""type"":""string""},{""indexed"":false,""name"":""hello"",""type"":""address""}],""name"":""MultipliedLog"",""type"":""event""}]";
 
             var addressFrom = "0x12890d2cce102216644c59dae5baed380d84830c";
-            var pass = "password";
-
-            var web3 = new Web3Geth(ClientFactory.GetClient());
-
-            var result = await web3.Personal.UnlockAccount.SendRequestAsync(addressFrom, pass, 600000);
-            Assert.True(result, "Account should be unlocked");
-
-           
-
-            var eth = web3.Eth;
-            var transactions = eth.Transactions;
+            var key = "0xb5b1870957d373ef0eeffecc6e4812c0fd08f554b37b233526acc331bf1544f7";
+            var web3 = new Web3(new Account(key), ClientFactory.GetClient());
 
             //deploy the contract, including abi and a paramter of 7. 
-            var transactionHash = await eth.DeployContract.SendRequestAsync(abi, contractByteCode, addressFrom, new HexBigInteger(900000), 7);
+            var transactionHash = await web3.Eth.DeployContract.SendRequestAsync(abi, contractByteCode, addressFrom, new HexBigInteger(900000), 7);
 
             Assert.NotNull(transactionHash);
-
-            result = await web3.Miner.Start.SendRequestAsync(4);
-            Assert.True(result, "Mining should have started");
 
             //the contract should be mining now
 
             //get the contract address 
-            TransactionReceipt receipt = null;
+            var receipt = await web3.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(transactionHash); 
             //wait for the contract to be mined to the address
             while (receipt == null)
             {
-                await Task.Delay(100);
-                receipt = await transactions.GetTransactionReceipt.SendRequestAsync(transactionHash);
+                Thread.Sleep(100);
+                receipt = await web3.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(transactionHash);
             }
 
             var code = await web3.Eth.GetCode.SendRequestAsync(receipt.ContractAddress);
@@ -93,7 +82,7 @@ namespace Nethereum.Web3.Tests
             }
        
    
-            var contract = eth.GetContract(abi, receipt.ContractAddress);
+            var contract = web3.Eth.GetContract(abi, receipt.ContractAddress);
 
             var multipliedEvent = contract.GetEvent("Multiplied");
             var filterAllContract = await contract.CreateFilterAsync();
@@ -101,7 +90,7 @@ namespace Nethereum.Web3.Tests
             //filter on the first indexed parameter
             var filter69 = await multipliedEvent.CreateFilterAsync(69);
             //filter on the second indexed parameter
-            var filter49 = await multipliedEvent.CreateFilterAsync<object, int>(null, 49);
+            //var filter49 = await multipliedEvent.CreateFilterAsync<object, int>(null, 49);
             //filter OR on the first indexed parameter
             var filter69And18 = await multipliedEvent.CreateFilterAsync(new[] { 69, 18 });
 
@@ -113,9 +102,9 @@ namespace Nethereum.Web3.Tests
             var multiplyFunction = contract.GetFunction("multiply");
            
             var gas = await multiplyFunction.EstimateGasAsync(69);
-            var transaction69 = await multiplyFunction.SendTransactionAsync(addressFrom, 69);
-            var transaction18 = await multiplyFunction.SendTransactionAsync(addressFrom, 18);
-            var transaction7 = await multiplyFunction.SendTransactionAsync(addressFrom, 7);
+            var transaction69 = await multiplyFunction.SendTransactionAsync(addressFrom, gas, null, 69);
+            var transaction18 = await multiplyFunction.SendTransactionAsync(addressFrom, gas, null, 18);
+            var transaction7 = await multiplyFunction.SendTransactionAsync(addressFrom, gas, null, 7);
 
             var multiplyFunction2 = contract.GetFunction("multiply2");
             var callResult = await multiplyFunction2.CallAsync<int>(7, 7);
@@ -124,17 +113,15 @@ namespace Nethereum.Web3.Tests
 
             while (receiptTransaction == null)
             {
-                await Task.Delay(100);
-                receiptTransaction = await transactions.GetTransactionReceipt.SendRequestAsync(transaction7);
+                Thread.Sleep(100);
+                receiptTransaction = await web3.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(transaction7);
             }
 
-            result = await web3.Miner.Stop.SendRequestAsync();
-            Assert.True(result, "Mining should have stopped");
-
-            var logs = await eth.Filters.GetFilterChangesForEthNewFilter.SendRequestAsync(filterAllContract);    
+            var logs = await web3.Eth.Filters.GetFilterChangesForEthNewFilter.SendRequestAsync(filterAllContract);    
             var eventLogsAll = await multipliedEvent.GetFilterChanges<EventMultiplied>(filterAll);
             var eventLogs69 = await multipliedEvent.GetFilterChanges<EventMultiplied>(filter69);
-            var eventLogsResult49 = await multipliedEvent.GetFilterChanges<EventMultiplied>(filter49);
+           //parity check
+            // var eventLogsResult49 = await multipliedEvent.GetFilterChanges<EventMultiplied>(filter49);
             var eventLogsFor69and18 = await multipliedEvent.GetFilterChanges<EventMultiplied>(filter69And18);
 
             

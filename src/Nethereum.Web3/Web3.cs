@@ -3,24 +3,33 @@ using Nethereum.ABI.Util;
 using Nethereum.Contracts;
 using Nethereum.JsonRpc.Client;
 using Nethereum.RPC;
-using Nethereum.RPC.Eth.TransactionManagers;
+using Nethereum.RPC.TransactionManagers;
 using Nethereum.Signer;
 using Nethereum.Util;
 using Nethereum.Web3.Accounts;
 using Newtonsoft.Json;
+using Nethereum.RPC.Accounts;
 
 namespace Nethereum.Web3
 {
     public class Web3
     {
-        private AddressUtil addressUtil;
-
-        private Sha3Keccack sha3Keccack;
+        private static AddressUtil addressUtil = new AddressUtil();
+        private static Sha3Keccack sha3Keccack = new Sha3Keccack();
+        private static TransactionSigner transactionSigner = new TransactionSigner();
+        private static UnitConversion unitConversion = new UnitConversion();
 
         public Web3(IClient client)
         {
             Client = client;
             InitialiseInnerServices();
+            IntialiseDefaultGasAndGasPrice();
+        }
+
+        private void IntialiseDefaultGasAndGasPrice()
+        {
+            this.TransactionManager.DefaultGas = Transaction.DEFAULT_GAS_LIMIT;
+            this.TransactionManager.DefaultGasPrice = Transaction.DEFAULT_GAS_PRICE;
         }
 
         public Web3(IAccount account, IClient client):this(client)
@@ -31,8 +40,9 @@ namespace Nethereum.Web3
 
         public Web3(string url = @"http://localhost:8545/")
         {
-            IntialiseRpcClient(url);
+            IntialiseDefaultRpcClient(url);
             InitialiseInnerServices();
+            IntialiseDefaultGasAndGasPrice();
         }
 
         public Web3(IAccount account, string url = @"http://localhost:8545/"):this(url)
@@ -47,8 +57,9 @@ namespace Nethereum.Web3
             set { Eth.TransactionManager = value; }
         }
 
-        public UnitConversion Convert { get; private set; }
-        public TransactionSigner OfflineTransactionSigner { get; private set; }
+        public static UnitConversion Convert { get { return unitConversion; } }
+
+        public static TransactionSigner OfflineTransactionSigner { get { return transactionSigner; } }
 
         public IClient Client { get; private set; }
 
@@ -59,27 +70,27 @@ namespace Nethereum.Web3
 
         public PersonalApiService Personal { get; private set; }
 
-        public string GetAddressFromPrivateKey(string privateKey)
+        public static string GetAddressFromPrivateKey(string privateKey)
         {
             return EthECKey.GetPublicAddress(privateKey);
         }
 
-        public bool IsChecksumAddress(string address)
+        public static bool IsChecksumAddress(string address)
         {
             return addressUtil.IsChecksumAddress(address);
         }
 
-        public string Sha3(string value)
+        public static string Sha3(string value)
         {
             return sha3Keccack.CalculateHash(value);
         }
 
-        public string ToChecksumAddress(string address)
+        public static string ToChecksumAddress(string address)
         {
             return addressUtil.ConvertToChecksumAddress(address);
         }
 
-        public string ToValid20ByteAddress(string address)
+        public static string ToValid20ByteAddress(string address)
         {
             return addressUtil.ConvertToValid20ByteAddress(address);
         }
@@ -89,17 +100,12 @@ namespace Nethereum.Web3
             Eth = new EthApiContractService(Client);
             Shh = new ShhApiService(Client);
             Net = new NetApiService(Client);
-            Personal = new PersonalApiService(Client);
-            Convert = new UnitConversion();
-            sha3Keccack = new Sha3Keccack();
-            OfflineTransactionSigner = new TransactionSigner();
-            addressUtil = new AddressUtil();
+            Personal = new PersonalApiService(Client);   
         }
 
-        private void IntialiseRpcClient(string url)
+        private void IntialiseDefaultRpcClient(string url)
         {
-            Client = new RpcClient(new Uri(url), null,
-                new JsonSerializerSettings {NullValueHandling = NullValueHandling.Ignore});
+            Client = new RpcClient(new Uri(url));
         }
     }
 }
